@@ -1,0 +1,21 @@
+{
+  "name": "scm-slang-main",
+  "version": "1.0.0",
+  "description": "Direct Scheme interpreter with CSE machine for Source Academy",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "test": "ts-node test-basic.ts",
+    "dev": "ts-node src/index.ts"
+  },
+  "keywords": ["scheme", "interpreter", "cse-machine", "source-academy"],
+  "author": "Your Name",
+  "license": "MIT",
+  "dependencies": {
+    "@types/estree": "^1.0.5"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "ts-node": "^10.9.0"
+  }
+}

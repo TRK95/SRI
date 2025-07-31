@@ -1,0 +1,27 @@
+{
+  "name": "scheme",
+  "displayName": "Scheme",
+  "version": "1.0.0",
+  "description": "Direct Scheme interpreter with CSE machine",
+  "entry": "dist/index.js",
+  "bundler": "webpack",
+  "editor": {
+    "language": "scheme",
+    "extensions": [".scm", ".ss"],
+    "syntax": "scheme"
+  },
+  "features": {
+    "stepByStep": true,
+    "breakpoints": true,
+    "variables": true,
+    "functions": true,
+    "lists": true,
+    "pairs": true,
+    "vectors": true,
+    "macros": true
+  },
+  "stdlib": {
+    "path": "src/stdlib",
+    "entry": "index.ts"
+  }
+} 
