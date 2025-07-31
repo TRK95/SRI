@@ -1,0 +1,15 @@
+{
+    "compilerOptions": {
+        "strict": true,
+        "noImplicitOverride": true,
+        "module": "ESNext",
+        "moduleResolution": "bundler",
+        "target": "ESNext",
+        "outDir": "dist",
+        "declaration": true,
+        "sourceMap": true
+    },
+    "include": [
+        "src/**/*"
+    ]
+}
