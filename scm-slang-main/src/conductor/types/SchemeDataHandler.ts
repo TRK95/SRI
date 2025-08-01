@@ -1,163 +1,228 @@
-import { IDataHandler } from './IDataHandler';
+// This file is adapted from:
+// https://github.com/source-academy/conductor
+// Original author(s): Source Academy Team
+
+import { IDataHandler, DataType, TypedValue, PairIdentifier, ArrayIdentifier, ClosureIdentifier, OpaqueIdentifier, Identifier, IFunctionSignature, ExternCallable, List } from './IDataHandler';
 import { Value } from '../../cse-machine/types';
 
 export class SchemeDataHandler implements IDataHandler {
-  private pairStore: Map<string, { car: Value; cdr: Value }> = new Map();
-  private listStore: Map<string, Value[]> = new Map();
-  private arrayStore: Map<string, Value[]> = new Map();
-  private closureStore: Map<string, { params: string[]; body: any[]; env: any }> = new Map();
-  private opaqueStore: Map<string, any> = new Map();
+  readonly hasDataInterface = true;
+  
+  private pairStore: Map<string, { car: TypedValue<DataType>; cdr: TypedValue<DataType> }> = new Map();
+  private arrayStore: Map<string, { elements: TypedValue<DataType>[]; type: DataType }> = new Map();
+  private closureStore: Map<string, { sig: IFunctionSignature; func: ExternCallable<any>; dependsOn?: (Identifier | null)[] }> = new Map();
+  private opaqueStore: Map<string, { data: any; immutable: boolean }> = new Map();
   private identifierCounter = 0;
 
   // Pair operations
-  createPair(car: Value, cdr: Value): string {
+  pair_make(head: TypedValue<DataType>, tail: TypedValue<DataType>): PairIdentifier {
     const id = `pair_${this.identifierCounter++}`;
-    this.pairStore.set(id, { car, cdr });
+    this.pairStore.set(id, { car: head, cdr: tail });
     return id;
   }
 
-  getCar(pairId: string): Value {
-    const pair = this.pairStore.get(pairId);
-    if (!pair) throw new Error(`Pair ${pairId} not found`);
+  pair_head(p: PairIdentifier): TypedValue<DataType> {
+    const pair = this.pairStore.get(p);
+    if (!pair) throw new Error(`Pair ${p} not found`);
     return pair.car;
   }
 
-  getCdr(pairId: string): Value {
-    const pair = this.pairStore.get(pairId);
-    if (!pair) throw new Error(`Pair ${pairId} not found`);
+  pair_sethead(p: PairIdentifier, tv: TypedValue<DataType>): void {
+    const pair = this.pairStore.get(p);
+    if (!pair) throw new Error(`Pair ${p} not found`);
+    pair.car = tv;
+  }
+
+  pair_tail(p: PairIdentifier): TypedValue<DataType> {
+    const pair = this.pairStore.get(p);
+    if (!pair) throw new Error(`Pair ${p} not found`);
     return pair.cdr;
   }
 
-  setCar(pairId: string, value: Value): void {
-    const pair = this.pairStore.get(pairId);
-    if (!pair) throw new Error(`Pair ${pairId} not found`);
-    pair.car = value;
+  pair_settail(p: PairIdentifier, tv: TypedValue<DataType>): void {
+    const pair = this.pairStore.get(p);
+    if (!pair) throw new Error(`Pair ${p} not found`);
+    pair.cdr = tv;
   }
 
-  setCdr(pairId: string, value: Value): void {
-    const pair = this.pairStore.get(pairId);
-    if (!pair) throw new Error(`Pair ${pairId} not found`);
-    pair.cdr = value;
-  }
-
-  // List operations
-  createList(elements: Value[]): string {
-    const id = `list_${this.identifierCounter++}`;
-    this.listStore.set(id, elements);
-    return id;
-  }
-
-  getListElements(listId: string): Value[] {
-    const list = this.listStore.get(listId);
-    if (!list) throw new Error(`List ${listId} not found`);
-    return list;
-  }
-
-  setListElements(listId: string, elements: Value[]): void {
-    this.listStore.set(listId, elements);
+  pair_assert(p: PairIdentifier, headType?: DataType, tailType?: DataType): void {
+    const pair = this.pairStore.get(p);
+    if (!pair) throw new Error(`Pair ${p} not found`);
+    
+    if (headType && pair.car.type !== headType) {
+      throw new Error(`Expected head type ${headType}, got ${pair.car.type}`);
+    }
+    
+    if (tailType && pair.cdr.type !== tailType) {
+      throw new Error(`Expected tail type ${tailType}, got ${pair.cdr.type}`);
+    }
   }
 
   // Array operations
-  createArray(elements: Value[]): string {
+  array_make<T extends DataType>(t: T, len: number, init?: TypedValue<NoInfer<T>>): ArrayIdentifier<NoInfer<T>> {
     const id = `array_${this.identifierCounter++}`;
-    this.arrayStore.set(id, elements);
+    const elements: TypedValue<DataType>[] = [];
+    
+    for (let i = 0; i < len; i++) {
+      elements.push(init || { type: 'void', value: undefined });
+    }
+    
+    this.arrayStore.set(id, { elements, type: t });
     return id;
   }
 
-  getArrayElement(arrayId: string, index: number): Value {
-    const array = this.arrayStore.get(arrayId);
-    if (!array) throw new Error(`Array ${arrayId} not found`);
-    if (index < 0 || index >= array.length) throw new Error(`Index ${index} out of bounds`);
-    return array[index];
+  array_length(a: ArrayIdentifier<DataType>): number {
+    const array = this.arrayStore.get(a);
+    if (!array) throw new Error(`Array ${a} not found`);
+    return array.elements.length;
   }
 
-  setArrayElement(arrayId: string, index: number, value: Value): void {
-    const array = this.arrayStore.get(arrayId);
-    if (!array) throw new Error(`Array ${arrayId} not found`);
-    if (index < 0 || index >= array.length) throw new Error(`Index ${index} out of bounds`);
-    array[index] = value;
+  array_get(a: ArrayIdentifier<DataType.VOID>, idx: number): TypedValue<DataType>;
+  array_get<T extends DataType>(a: ArrayIdentifier<T>, idx: number): TypedValue<NoInfer<T>>;
+  array_get(a: ArrayIdentifier<DataType>, idx: number): TypedValue<DataType> {
+    const array = this.arrayStore.get(a);
+    if (!array) throw new Error(`Array ${a} not found`);
+    if (idx < 0 || idx >= array.elements.length) throw new Error(`Index ${idx} out of bounds`);
+    return array.elements[idx];
   }
 
-  getArrayLength(arrayId: string): number {
-    const array = this.arrayStore.get(arrayId);
-    if (!array) throw new Error(`Array ${arrayId} not found`);
-    return array.length;
+  array_type<T extends DataType>(a: ArrayIdentifier<T>): NoInfer<T> {
+    const array = this.arrayStore.get(a);
+    if (!array) throw new Error(`Array ${a} not found`);
+    return array.type as NoInfer<T>;
+  }
+
+  array_set(a: ArrayIdentifier<DataType.VOID>, idx: number, tv: TypedValue<DataType>): void;
+  array_set<T extends DataType>(a: ArrayIdentifier<T>, idx: number, tv: TypedValue<NoInfer<T>>): void;
+  array_set(a: ArrayIdentifier<DataType>, idx: number, tv: TypedValue<DataType>): void {
+    const array = this.arrayStore.get(a);
+    if (!array) throw new Error(`Array ${a} not found`);
+    if (idx < 0 || idx >= array.elements.length) throw new Error(`Index ${idx} out of bounds`);
+    array.elements[idx] = tv;
+  }
+
+  array_assert<T extends DataType>(a: ArrayIdentifier<DataType>, type?: T, length?: number): asserts a is ArrayIdentifier<NoInfer<T>> {
+    const array = this.arrayStore.get(a);
+    if (!array) throw new Error(`Array ${a} not found`);
+    
+    if (type && array.type !== type) {
+      throw new Error(`Expected array type ${type}, got ${array.type}`);
+    }
+    
+    if (length !== undefined && array.elements.length !== length) {
+      throw new Error(`Expected array length ${length}, got ${array.elements.length}`);
+    }
   }
 
   // Closure operations
-  createClosure(params: string[], body: any[], env: any): string {
+  closure_make<const T extends IFunctionSignature>(sig: T, func: ExternCallable<T>, dependsOn?: (Identifier | null)[]): ClosureIdentifier<T["returnType"]> {
     const id = `closure_${this.identifierCounter++}`;
-    this.closureStore.set(id, { params, body, env });
+    this.closureStore.set(id, { sig, func, dependsOn });
     return id;
   }
 
-  callClosure(closureId: string, args: Value[]): Value {
-    const closure = this.closureStore.get(closureId);
-    if (!closure) throw new Error(`Closure ${closureId} not found`);
-    // This would need to be integrated with your CSE machine
-    // For now, return a placeholder
-    return { type: 'undefined' };
+  closure_is_vararg(c: ClosureIdentifier<DataType>): boolean {
+    const closure = this.closureStore.get(c);
+    if (!closure) throw new Error(`Closure ${c} not found`);
+    return closure.sig.vararg || false;
   }
 
-  getClosureParams(closureId: string): string[] {
-    const closure = this.closureStore.get(closureId);
-    if (!closure) throw new Error(`Closure ${closureId} not found`);
-    return closure.params;
+  closure_arity(c: ClosureIdentifier<DataType>): number {
+    const closure = this.closureStore.get(c);
+    if (!closure) throw new Error(`Closure ${c} not found`);
+    return closure.sig.parameters.length;
+  }
+
+  async closure_call<T extends DataType>(c: ClosureIdentifier<DataType>, args: TypedValue<DataType>[], returnType: T): Promise<TypedValue<NoInfer<T>>> {
+    const closure = this.closureStore.get(c);
+    if (!closure) throw new Error(`Closure ${c} not found`);
+    
+    const result = await closure.func(...args);
+    if (result.type !== returnType) {
+      throw new Error(`Expected return type ${returnType}, got ${result.type}`);
+    }
+    
+    return result as TypedValue<NoInfer<T>>;
+  }
+
+  async closure_call_unchecked<T extends DataType>(c: ClosureIdentifier<T>, args: TypedValue<DataType>[]): Promise<TypedValue<NoInfer<T>>> {
+    const closure = this.closureStore.get(c);
+    if (!closure) throw new Error(`Closure ${c} not found`);
+    
+    const result = await closure.func(...args);
+    return result as TypedValue<NoInfer<T>>;
+  }
+
+  closure_arity_assert(c: ClosureIdentifier<DataType>, arity: number): void {
+    const actualArity = this.closure_arity(c);
+    if (actualArity !== arity) {
+      throw new Error(`Expected closure arity ${arity}, got ${actualArity}`);
+    }
   }
 
   // Opaque operations
-  createOpaque(data: any): string {
+  opaque_make(v: any, immutable: boolean = false): OpaqueIdentifier {
     const id = `opaque_${this.identifierCounter++}`;
-    this.opaqueStore.set(id, data);
+    this.opaqueStore.set(id, { data: v, immutable });
     return id;
   }
 
-  getOpaqueData(opaqueId: string): any {
-    const data = this.opaqueStore.get(opaqueId);
-    if (!data) throw new Error(`Opaque ${opaqueId} not found`);
-    return data;
+  opaque_get(o: OpaqueIdentifier): any {
+    const opaque = this.opaqueStore.get(o);
+    if (!opaque) throw new Error(`Opaque ${o} not found`);
+    return opaque.data;
   }
 
-  setOpaqueData(opaqueId: string, data: any): void {
-    this.opaqueStore.set(opaqueId, data);
+  opaque_update(o: OpaqueIdentifier, v: any): void {
+    const opaque = this.opaqueStore.get(o);
+    if (!opaque) throw new Error(`Opaque ${o} not found`);
+    if (opaque.immutable) throw new Error(`Cannot update immutable opaque object ${o}`);
+    opaque.data = v;
   }
 
-  // Type checking
-  isPair(value: Value): boolean {
-    return value.type === 'pair';
+  // Lifetime management
+  tie(dependent: Identifier, dependee: Identifier | null): void {
+    // For now, just store the dependency - could be extended for garbage collection
+    console.log(`Tied ${dependent} to ${dependee}`);
   }
 
-  isList(value: Value): boolean {
-    return value.type === 'list' || (value.type === 'pair' && this.isList(value.cdr));
+  untie(dependent: Identifier, dependee: Identifier | null): void {
+    // For now, just log the untie - could be extended for garbage collection
+    console.log(`Untied ${dependent} from ${dependee}`);
   }
 
-  isArray(value: Value): boolean {
-    return value.type === 'vector';
+  // Standard library functions
+  list(...elements: TypedValue<DataType>[]): TypedValue<DataType.LIST> {
+    return { type: 'list', value: elements };
   }
 
-  isClosure(value: Value): boolean {
-    return value.type === 'closure';
+  is_list(xs: List): boolean {
+    return xs.type === 'list';
   }
 
-  isOpaque(value: Value): boolean {
-    return value.type === 'opaque';
+  list_to_vec(xs: List): TypedValue<DataType>[] {
+    if (!this.is_list(xs)) throw new Error('Expected list');
+    return xs.value as TypedValue<DataType>[];
   }
 
-  // Utility
-  getValueType(value: Value): string {
-    return value.type;
+  async accumulate<T extends Exclude<DataType, DataType.VOID>>(
+    op: ClosureIdentifier<DataType>, 
+    initial: TypedValue<T>, 
+    sequence: List, 
+    resultType: T
+  ): Promise<TypedValue<T>> {
+    const elements = this.list_to_vec(sequence);
+    let result = initial;
+    
+    for (const element of elements) {
+      result = await this.closure_call(op, [result, element], resultType);
+    }
+    
+    return result;
   }
 
-  createIdentifier(value: Value): string {
-    const id = `value_${this.identifierCounter++}`;
-    // Store the value for later retrieval
-    // This is a simplified implementation
-    return id;
-  }
-
-  getValueFromIdentifier(identifier: string): Value {
-    // This would need to retrieve the stored value
-    // For now, return undefined
-    return { type: 'undefined' };
+  length(xs: List): number {
+    if (!this.is_list(xs)) throw new Error('Expected list');
+    return (xs.value as TypedValue<DataType>[]).length;
   }
 } 

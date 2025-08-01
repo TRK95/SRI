@@ -10,11 +10,17 @@ A direct Scheme interpreter with CSE machine that integrates with Source Academy
 - ✅ **Standard Library**: Built-in Scheme primitives and data structures
 - ✅ **Type Safety**: Full TypeScript implementation
 - ✅ **Educational**: Perfect for teaching Scheme and programming concepts
+- ✅ **Module Support**: External module loading and registration
+- ✅ **Data Handler Interface**: Full Conductor data type support
 
 ## Architecture
 
 ```
 Scheme Code → Parser → Scheme AST → CSE Machine → Results
+                    ↓
+            Conductor Integration
+                    ↓
+            Source Academy Ecosystem
 ```
 
 ### Components
@@ -24,6 +30,7 @@ Scheme Code → Parser → Scheme AST → CSE Machine → Results
 3. **Conductor Integration**: Plugin system for Source Academy
 4. **Data Handler**: Manages Scheme data types (pairs, lists, vectors, etc.)
 5. **Standard Library**: Built-in Scheme functions and primitives
+6. **Module System**: External module loading and registration
 
 ## Installation
 
@@ -53,9 +60,25 @@ const result = await runInContext('(define x 5)', context);
 The interpreter is designed to work with Source Academy's Conductor system:
 
 1. **Language Configuration**: `scheme-language.json` defines the language for Source Academy
-2. **Plugin System**: Implements `IEvaluator` interface for Conductor
+2. **Plugin System**: Implements `IEvaluator` and `IInterfacableEvaluator` interfaces for Conductor
 3. **Data Types**: Supports all Scheme data types (pairs, lists, vectors, closures)
 4. **Standard Library**: Provides Scheme primitives and functions
+5. **Module Support**: External module loading and registration
+
+### Conductor Integration
+
+```typescript
+import { SchemeEvaluator, initialise } from './dist';
+
+// Initialize the Conductor system
+const { runnerPlugin, conduit } = initialise(SchemeEvaluator);
+
+// The evaluator now supports:
+// - Standard IEvaluator interface
+// - IDataHandler interface for data type management
+// - Module registration and loading
+// - External plugin support
+```
 
 ## Data Types
 
@@ -72,24 +95,45 @@ The interpreter is designed to work with Source Academy's Conductor system:
 | `closure` | Functions | `(lambda (x) (+ x 1))` |
 | `primitive` | Built-in functions | `+`, `car`, `cdr` |
 
-## Standard Library
+## Conductor Data Handler Interface
 
-### List Operations
-- `cons`, `car`, `cdr`
-- `list`, `append`, `reverse`
-- `length`, `null?`, `pair?`
+The interpreter implements the full Conductor `IDataHandler` interface:
 
-### Vector Operations
-- `make-vector`, `vector-ref`, `vector-set!`
-- `vector-length`, `vector?`
+### Pair Operations
+- `pair_make(head, tail)`: Create a new pair
+- `pair_head(p)`: Get the head of a pair
+- `pair_tail(p)`: Get the tail of a pair
+- `pair_sethead(p, value)`: Set the head of a pair
+- `pair_settail(p, value)`: Set the tail of a pair
+- `pair_assert(p, headType?, tailType?)`: Assert pair types
 
-### Arithmetic
-- `+`, `-`, `*`, `/`
-- `=`, `<`, `>`, `<=`, `>=`
+### Array Operations
+- `array_make(type, length, init?)`: Create a new array
+- `array_length(a)`: Get array length
+- `array_get(a, index)`: Get array element
+- `array_set(a, index, value)`: Set array element
+- `array_type(a)`: Get array element type
+- `array_assert(a, type?, length?)`: Assert array properties
 
-### Type Predicates
-- `number?`, `string?`, `boolean?`
-- `symbol?`, `null?`, `pair?`, `vector?`
+### Closure Operations
+- `closure_make(sig, func, dependsOn?)`: Create a new closure
+- `closure_is_vararg(c)`: Check if closure accepts variable arguments
+- `closure_arity(c)`: Get closure arity
+- `closure_call(c, args, returnType)`: Call closure with type checking
+- `closure_call_unchecked(c, args)`: Call closure without type checking
+- `closure_arity_assert(c, arity)`: Assert closure arity
+
+### Opaque Operations
+- `opaque_make(value, immutable?)`: Create opaque object
+- `opaque_get(o)`: Get opaque value
+- `opaque_update(o, value)`: Update opaque value
+
+### Standard Library Functions
+- `list(...elements)`: Create a list
+- `is_list(xs)`: Check if value is a list
+- `list_to_vec(xs)`: Convert list to vector
+- `accumulate(op, initial, sequence, resultType)`: Accumulate over sequence
+- `length(xs)`: Get list length
 
 ## Development
 
@@ -106,7 +150,14 @@ src/
 │   └── interpreter.ts   # Main interpreter
 ├── conductor/           # Source Academy integration
 │   ├── runner/         # Runner plugin
-│   └── types/          # Data handlers
+│   ├── types/          # Data handlers
+│   ├── common/         # Common utilities
+│   └── module/         # Module system
+├── conduit/            # Communication layer
+│   ├── types.ts        # Channel interfaces
+│   ├── Conduit.ts      # Main conduit
+│   ├── Channel.ts      # Channel implementation
+│   └── ChannelQueue.ts # Queued channels
 ├── transpiler/         # Existing parser (reused)
 ├── direct-parser.ts    # Direct parser interface
 └── index.ts           # Main entry point
@@ -117,6 +168,7 @@ src/
 ```bash
 npm run build    # Build TypeScript to JavaScript
 npm run test     # Run basic tests
+npm run test:conductor # Run Conductor integration tests
 npm run dev      # Development mode
 ```
 
@@ -126,8 +178,12 @@ npm run dev      # Development mode
 # Run basic functionality tests
 npm run test
 
+# Run Conductor integration tests
+npm run test:conductor
+
 # Test specific features
 npx ts-node test-basic.ts
+npx ts-node test-conductor-integration.ts
 ```
 
 ## Source Academy Integration
@@ -148,6 +204,16 @@ The `scheme-language.json` file defines:
 - Features (step-by-step, breakpoints, etc.)
 - Standard library location
 
+### Conductor Protocol
+
+The interpreter implements the full Conductor protocol:
+
+- **Channel Communication**: File, chunk, service, I/O, error, and status channels
+- **Service Messages**: Hello, abort, entry, and plugin service messages
+- **RPC Support**: Remote procedure calls for file operations
+- **Module Loading**: External module and plugin loading
+- **Data Type Management**: Full type-safe data handling
+
 ## Contributing
 
 1. Fork the repository
@@ -165,3 +231,4 @@ MIT License - see LICENSE file for details.
 - Based on the Source Academy Conductor system
 - Inspired by SICP and educational programming
 - Built with TypeScript for type safety
+- Full integration with Source Academy ecosystem

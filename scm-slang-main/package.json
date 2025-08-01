@@ -6,9 +6,10 @@
   "scripts": {
     "build": "tsc",
     "test": "ts-node test-basic.ts",
+    "test:conductor": "ts-node test-conductor-integration.ts",
     "dev": "ts-node src/index.ts"
   },
-  "keywords": ["scheme", "interpreter", "cse-machine", "source-academy"],
+  "keywords": ["scheme", "interpreter", "cse-machine", "source-academy", "conductor"],
   "author": "Your Name",
   "license": "MIT",
   "dependencies": {

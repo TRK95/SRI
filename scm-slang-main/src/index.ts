@@ -20,7 +20,11 @@ export * from './cse-machine/types';
 // Export Conductor integration
 export { SchemeEvaluator } from './conductor/runner/types/SchemeEvaluator';
 export { BasicEvaluator } from './conductor/runner/BasicEvaluator';
+export { RunnerPlugin } from './conductor/runner/RunnerPlugin';
+export { initialise } from './conductor/runner/util/initialise';
 export * from './conductor/runner/types';
+export * from './conductor/types';
+export * from './conductor/common/errors';
 
 // Export transpiler components (for compatibility)
 export * from './transpiler';
